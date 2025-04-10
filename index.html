@@ -1,0 +1,2326 @@
+<!-- Time Management Widget -->
+<style>
+    /* Unique namespace styles */
+    .timemgmt-container {
+        position: fixed;
+        bottom: 120px;
+        right: 20px;
+        width: 350px;
+        background: rgba(255,255,255,0.95);
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 999;
+        font-family: 'Poppins', sans-serif;
+        backdrop-filter: blur(10px);
+        display: none;
+    }
+
+    .timemgmt-header {
+        padding: 15px;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+        display: flex;
+        gap: 10px;
+    }
+
+    .timemgmt-tab {
+        padding: 8px 15px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .timemgmt-tab.active {
+        background: var(--primary);
+        color: white;
+    }
+
+    .timemgmt-content {
+        padding: 20px;
+    }
+
+    .time-display {
+        font-size: 2.5rem;
+        text-align: center;
+        margin: 20px 0;
+        font-family: monospace;
+    }
+
+    .time-controls {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .time-button {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        background: var(--primary);
+        color: white;
+    }
+
+    .timemgmt-toggle {
+        position: fixed;
+        bottom: 200px;
+        right: 20px;
+        background: var(--primary);
+        color: white;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 5px 15px rgba(67,97,238,0.3);
+        z-index: 1000;
+    }
+
+    /* Dark mode support */
+    body.dark-mode .timemgmt-container {
+        background: rgba(26,30,33,0.95);
+    }
+
+    body.dark-mode .timemgmt-header {
+        border-color: rgba(255,255,255,0.1);
+    }
+
+    body.dark-mode .time-button {
+        background: var(--primary-light);
+    }
+</style>
+
+<div class="timemgmt-toggle" id="timemgmtToggle">
+    <i class="fas fa-clock"></i>
+</div>
+
+<div class="timemgmt-container" id="timemgmtContainer">
+    <div class="timemgmt-header">
+        <div class="timemgmt-tab active" data-tab="clock">Clock</div>
+        <div class="timemgmt-tab" data-tab="timer">Timer</div>
+        <div class="timemgmt-tab" data-tab="stopwatch">Stopwatch</div>
+    </div>
+
+    <div class="timemgmt-content">
+        <!-- Clock Tab -->
+        <div class="time-tab active" id="clockTab">
+            <div class="time-display" id="clockDisplay">00:00:00</div>
+        </div>
+
+        <!-- Timer Tab -->
+        <div class="time-tab" id="timerTab">
+            <div class="time-display" id="timerDisplay">00:00:00</div>
+            <div class="time-controls">
+                <button class="time-button" id="timerStart">Start</button>
+                <button class="time-button" id="timerReset">Reset</button>
+            </div>
+            <input type="number" id="timerInput" placeholder="Minutes" style="width:100%; margin-top:15px; padding:8px;">
+        </div>
+
+        <!-- Stopwatch Tab -->
+        <div class="time-tab" id="stopwatchTab">
+            <div class="time-display" id="stopwatchDisplay">00:00:00</div>
+            <div class="time-controls">
+                <button class="time-button" id="stopwatchStart">Start</button>
+                <button class="time-button" id="stopwatchReset">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Self-contained time management system
+document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('timemgmtContainer');
+    const toggle = document.getElementById('timemgmtToggle');
+    const tabs = document.querySelectorAll('.timemgmt-tab');
+    const timeTabs = document.querySelectorAll('.time-tab');
+
+    // Toggle visibility
+    toggle.addEventListener('click', () => {
+        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+    });
+
+    // Tab switching
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            const tabId = tab.getAttribute('data-tab');
+            timeTabs.forEach(t => t.classList.remove('active'));
+            document.getElementById(`${tabId}Tab`).classList.add('active');
+        });
+    });
+
+    // Clock functionality
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clockDisplay').textContent = 
+            `${now.getHours().toString().padStart(2,'0')}:` +
+            `${now.getMinutes().toString().padStart(2,'0')}:` +
+            `${now.getSeconds().toString().padStart(2,'0')}`;
+    }
+    setInterval(updateClock, 1000);
+
+    // Timer functionality
+    let timerTime = 0;
+    let timerInterval;
+    const timerDisplay = document.getElementById('timerDisplay');
+    const timerInput = document.getElementById('timerInput');
+
+    document.getElementById('timerStart').addEventListener('click', () => {
+        if(!timerInterval) {
+            const minutes = parseInt(timerInput.value) || 0;
+            timerTime = minutes * 60;
+            
+            timerInterval = setInterval(() => {
+                timerTime--;
+                if(timerTime <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+                }
+                updateTimerDisplay();
+            }, 1000);
+        }
+    });
+
+    document.getElementById('timerReset').addEventListener('click', () => {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        timerTime = 0;
+        updateTimerDisplay();
+    });
+
+    function updateTimerDisplay() {
+        const minutes = Math.floor(timerTime / 60);
+        const seconds = timerTime % 60;
+        timerDisplay.textContent = 
+            `${minutes.toString().padStart(2,'0')}:` +
+            `${seconds.toString().padStart(2,'0')}`;
+    }
+
+    // Stopwatch functionality
+    let stopwatchTime = 0;
+    let stopwatchInterval;
+    const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+
+    document.getElementById('stopwatchStart').addEventListener('click', () => {
+        if(!stopwatchInterval) {
+            stopwatchInterval = setInterval(() => {
+                stopwatchTime++;
+                updateStopwatchDisplay();
+            }, 1000);
+        } else {
+            clearInterval(stopwatchInterval);
+            stopwatchInterval = null;
+        }
+    });
+
+    document.getElementById('stopwatchReset').addEventListener('click', () => {
+        stopwatchTime = 0;
+        updateStopwatchDisplay();
+    });
+
+    function updateStopwatchDisplay() {
+        const hours = Math.floor(stopwatchTime / 3600);
+        const minutes = Math.floor((stopwatchTime % 3600) / 60);
+        const seconds = stopwatchTime % 60;
+        stopwatchDisplay.textContent = 
+            `${hours.toString().padStart(2,'0')}:` +
+            `${minutes.toString().padStart(2,'0')}:` +
+            `${seconds.toString().padStart(2,'0')}`;
+    }
+
+    // Voice command integration
+    const commands = {
+        'set timer for (\\d+) minutes?': (minutes) => {
+            document.querySelector('[data-tab="timer"]').click();
+            timerInput.value = minutes;
+            document.getElementById('timerStart').click();
+        }
+    };
+
+    // Connect to existing speech recognition
+    if(window.recognition) {
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            for(const [pattern, handler] of Object.entries(commands)) {
+                const match = transcript.match(new RegExp(pattern));
+                if(match) {
+                    handler(match[1]);
+                    break;
+                }
+            }
+        };
+    }
+});
+</script>
+<!-- End Time Widget -->
+ <!-- Ollama Chat Widget -->
+<style>
+    /* Unique CSS namespace to prevent conflicts */
+    .aichat-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 350px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+        max-height: 70vh;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .aichat-header {
+        background: var(--primary);
+        color: white;
+        padding: 15px;
+        border-radius: 15px 15px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .aichat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+        background: #f8f9fa;
+    }
+    
+    .aichat-message {
+        margin: 10px 0;
+        padding: 10px 15px;
+        border-radius: 10px;
+        max-width: 80%;
+        animation: aichatSlide 0.3s ease;
+    }
+    
+    .aichat-user {
+        background: var(--primary);
+        color: white;
+        margin-left: auto;
+    }
+    
+    .aichat-bot {
+        background: white;
+        border: 1px solid #ddd;
+        margin-right: auto;
+    }
+    
+    .aichat-input {
+        display: flex;
+        padding: 15px;
+        border-top: 1px solid #ddd;
+        gap: 10px;
+    }
+    
+    #aichatInput {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    .aichat-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--primary);
+        color: white;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 5px 15px rgba(67,97,238,0.3);
+        z-index: 1001;
+    }
+
+    @keyframes aichatSlide {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<div class="aichat-toggle" id="aichatToggle">
+    <i class="fas fa-comment-alt"></i>
+</div>
+
+<div class="aichat-container" id="aichatContainer">
+    <div class="aichat-header">
+        <h3>Vision Assistant</h3>
+        <button class="aichat-close" id="aichatClose" style="background:none;border:none;color:white;">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="aichat-messages" id="aichatMessages">
+        <div class="aichat-message aichat-bot">
+            I'm your vision assistant. Ask me about what I see or general knowledge!
+        </div>
+    </div>
+    <div class="aichat-input">
+        <input type="text" id="aichatInput" placeholder="Type your question...">
+        <button id="aichatSend" style="background:var(--primary);color:white;border:none;padding:10px 15px;border-radius:8px;cursor:pointer;">
+            Send
+        </button>
+    </div>
+</div>
+
+<script>
+// Self-contained Ollama chat system
+document.addEventListener('DOMContentLoaded', () => {
+    const ollamaEndpoint = "http://localhost:11434/api/generate";
+    const chatToggle = document.getElementById('aichatToggle');
+    const chatContainer = document.getElementById('aichatContainer');
+    const chatMessages = document.getElementById('aichatMessages');
+    const chatInput = document.getElementById('aichatInput');
+    const chatSend = document.getElementById('aichatSend');
+    const chatClose = document.getElementById('aichatClose');
+
+    // Toggle chat visibility
+    chatToggle.addEventListener('click', () => {
+        chatContainer.style.display = 'flex';
+        chatToggle.style.display = 'none';
+    });
+
+    chatClose.addEventListener('click', () => {
+        chatContainer.style.display = 'none';
+        chatToggle.style.display = 'flex';
+    });
+
+    // Add message to chat
+    function addChatMessage(text, isUser = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `aichat-message ${isUser ? 'aichat-user' : 'aichat-bot'}`;
+        messageDiv.textContent = text;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Ollama query function (self-contained)
+    async function chatQueryOllama(prompt) {
+        try {
+            const response = await fetch(ollamaEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: "gemma:2b",
+                    prompt: prompt,
+                    stream: false
+                })
+            });
+
+            if (!response.ok) throw new Error("Ollama connection failed");
+            const data = await response.json();
+            return data.response.trim();
+        } catch (error) {
+            console.error("Chat Error:", error);
+            return "Sorry, I'm having trouble connecting to the AI. Please check if Ollama is running.";
+        }
+    }
+
+    // Handle messages
+    async function handleChatInput() {
+        const prompt = chatInput.value.trim();
+        if (!prompt) return;
+
+        addChatMessage(prompt, true);
+        chatInput.value = '';
+
+        try {
+            const response = await chatQueryOllama(prompt);
+            addChatMessage(response);
+        } catch (error) {
+            addChatMessage("Sorry, I couldn't process that request.");
+        }
+    }
+
+    // Event listeners
+    chatSend.addEventListener('click', handleChatInput);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleChatInput();
+    });
+});
+</script>
+<!-- End Chat Widget -->
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #5e7bf0;
+            --secondary: #3f37c9;
+            --dark: #212529;
+            --darker: #1a1e21;
+            --light: #f8f9fa;
+            --lighter: #ffffff;
+            --gray: #6c757d;
+            --success: #4bb543;
+            --danger: #ff3333;
+            --warning: #ffcc00;
+            --info: #17a2b8;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+            color: var(--dark);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo-icon {
+            font-size: 2.5rem;
+            color: var(--primary);
+        }
+        
+        .logo-text h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        
+        .logo-text p {
+            font-size: 0.9rem;
+            color: var(--gray);
+        }
+        
+        .theme-toggle {
+            background: var(--lighter);
+            border: none;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            transform: rotate(30deg);
+        }
+        
+        .theme-toggle i {
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .video-section {
+            background: var(--lighter);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .video-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: var(--dark);
+        }
+        
+        .section-title i {
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+        
+        #videoContainer {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: var(--dark);
+            margin-bottom: 20px;
+        }
+        
+        #videoElement, #canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.3);
+        }
+        
+        .btn:hover {
+            background: var(--primary-light);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(67, 97, 238, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: var(--gray);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn i {
+            font-size: 1rem;
+        }
+        
+        .btn-danger {
+            background: var(--danger);
+            box-shadow: 0 4px 10px rgba(255, 51, 51, 0.3);
+        }
+        
+        .btn-danger:hover {
+            background: #ff5252;
+            box-shadow: 0 6px 15px rgba(255, 51, 51, 0.4);
+        }
+        
+        .btn-success {
+            background: var(--success);
+            box-shadow: 0 4px 10px rgba(75, 181, 67, 0.3);
+        }
+        
+        .btn-success:hover {
+            background: #5ac552;
+            box-shadow: 0 6px 15px rgba(75, 181, 67, 0.4);
+        }
+        
+        .btn-warning {
+            background: var(--warning);
+            box-shadow: 0 4px 10px rgba(255, 204, 0, 0.3);
+        }
+        
+        .btn-warning:hover {
+            background: #ffd633;
+            box-shadow: 0 6px 15px rgba(255, 204, 0, 0.4);
+        }
+        
+        .btn-info {
+            background: var(--info);
+            box-shadow: 0 4px 10px rgba(23, 162, 184, 0.3);
+        }
+        
+        .btn-info:hover {
+            background: #19b5d5;
+            box-shadow: 0 6px 15px rgba(23, 162, 184, 0.4);
+        }
+        
+        .status-container {
+            background: var(--lighter);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-indicator.listening {
+            background: var(--danger);
+        }
+        
+        .status-indicator.thinking {
+            background: var(--warning);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        #status {
+            font-size: 0.9rem;
+            color: var(--dark);
+        }
+        
+        .command-section {
+            background: var(--lighter);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .command-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(to right, var(--secondary), var(--primary));
+        }
+        
+        .command-history {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding-right: 10px;
+        }
+        
+        .command-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .command-history::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        .command-history::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 10px;
+        }
+        
+        .command-history ul {
+            list-style: none;
+        }
+        
+        .command-history li {
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: rgba(67, 97, 238, 0.05);
+            border-left: 3px solid var(--primary);
+            border-radius: 0 5px 5px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .command-history li:hover {
+            background: rgba(67, 97, 238, 0.1);
+            transform: translateX(5px);
+        }
+        
+        .command-history li time {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--gray);
+            margin-bottom: 3px;
+        }
+        
+        /* AI Response Section */
+        .ai-response {
+            background: rgba(67, 97, 238, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            border-left: 3px solid var(--primary);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .ai-response-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .ai-response-content {
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .ai-response-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--gray);
+        }
+        
+        .ai-response-loading .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(67, 97, 238, 0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Settings Panel */
+        .settings-panel {
+            background: var(--lighter);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        
+        .settings-panel h3 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dark);
+        }
+        
+        .settings-panel h3 i {
+            color: var(--primary);
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .setting-item label {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+        
+        .setting-item select, .setting-item input {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            background: var(--lighter);
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        /* Analytics Panel */
+        .analytics-panel {
+            background: var(--lighter);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        
+        .analytics-panel h3 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dark);
+        }
+        
+        .analytics-panel h3 i {
+            color: var(--primary);
+        }
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .analytics-chart {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Command Examples */
+        .command-examples {
+            margin-top: 30px;
+        }
+        
+        .examples-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+        
+        .examples-title i {
+            font-size: 1.2rem;
+            color: var(--secondary);
+        }
+        
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .example-chip {
+            background: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .example-chip:hover {
+            background: rgba(67, 97, 238, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            font-weight: 500;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
+        
+        .creators {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .creator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .creator i {
+            color: var(--primary);
+        }
+        
+        /* Dark mode styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: var(--light);
+        }
+        
+        body.dark-mode .video-section,
+        body.dark-mode .command-section,
+        body.dark-mode .status-container,
+        body.dark-mode .ai-response,
+        body.dark-mode .settings-panel,
+        body.dark-mode .analytics-panel {
+            background: var(--darker);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        body.dark-mode .section-title,
+        body.dark-mode .examples-title,
+        body.dark-mode .ai-response-title,
+        body.dark-mode .settings-panel h3,
+        body.dark-mode .analytics-panel h3 {
+            color: var(--light);
+        }
+        
+        body.dark-mode .command-history li {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--light);
+        }
+        
+        body.dark-mode .command-history li:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        body.dark-mode .example-chip {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--light);
+        }
+        
+        body.dark-mode .example-chip:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        body.dark-mode footer {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        body.dark-mode .ai-response {
+            background: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--primary-light);
+        }
+        
+        body.dark-mode .setting-item select, 
+        body.dark-mode .setting-item input {
+            background: var(--darker);
+            color: var(--light);
+            border-color: #444;
+        }
+        
+        body.dark-mode .analytics-chart {
+            background: var(--darker);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        body.dark-mode .tabs {
+            border-bottom-color: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>AI Vision Assistant</h1>
+                    <p>See, hear, and understand your world</p>
+                </div>
+            </div>
+            <button class="theme-toggle" id="darkModeToggle">
+                <i class="fas fa-moon"></i>
+            </button>
+        </header>
+        
+        <div class="main-content">
+            <div class="video-section">
+                <div class="section-title">
+                    <i class="fas fa-eye"></i>
+                    <h2>Vision Panel</h2>
+                </div>
+                
+                <div id="videoContainer">
+                    <video id="videoElement" autoplay muted playsinline></video>
+                    <canvas id="canvas"></canvas>
+                </div>
+                
+                <div class="control-buttons">
+                    <button id="activateBtn" class="btn btn-success">
+                        <i class="fas fa-microphone"></i> Start Listening
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger" disabled>
+                        <i class="fas fa-microphone-slash"></i> Stop
+                    </button>
+                    <button id="detectBtn" class="btn">
+                        <i class="fas fa-object-group"></i> Detect Objects
+                    </button>
+                    <button id="faceBtn" class="btn btn-info">
+                        <i class="fas fa-user"></i> Face Detection
+                    </button>
+                    <button id="handBtn" class="btn btn-warning">
+                        <i class="fas fa-hand-paper"></i> Hand Tracking
+                    </button>
+                </div>
+                
+                <div class="status-container">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <div id="status">Initializing...</div>
+                </div>
+                
+                <div class="settings-panel">
+                    <h3><i class="fas fa-cog"></i> Settings</h3>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label for="cameraSelect">Camera</label>
+                            <select id="cameraSelect">
+                                <option value="environment">Rear Camera</option>
+                                <option value="user">Front Camera</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="modelSelect">AI Model</label>
+                            <select id="modelSelect">
+                                <option value="coco-ssd">COCO-SSD (Default)</option>
+                                <option value="mobilenet">MobileNet</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="languageSelect">Language</label>
+                            <select id="languageSelect">
+                                <option value="en-US">English</option>
+                                <option value="hi-IN">Hindi</option>
+                                <option value="es-ES">Spanish</option>
+                                <option value="fr-FR">French</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="command-section">
+                <div class="tabs">
+                    <div class="tab active" data-tab="commands">Commands</div>
+                    <div class="tab" data-tab="analytics">Analytics</div>
+                    <div class="tab" data-tab="knowledge">Knowledge Base</div>
+                </div>
+                
+                <div class="tab-content active" id="commands-tab">
+                    <div class="section-title">
+                        <i class="fas fa-history"></i>
+                        <h2>Command History</h2>
+                    </div>
+                    
+                    <div class="command-history">
+                        <ul id="historyList"></ul>
+                    </div>
+                    
+                    <div id="aiResponseContainer" class="ai-response" style="display: none;">
+                        <div class="ai-response-title">
+                            <i class="fas fa-brain"></i>
+                            <span>AI Response</span>
+                        </div>
+                        <div class="ai-response-content" id="aiResponseContent"></div>
+                    </div>
+                    
+                    <div class="command-examples">
+                        <div class="examples-title">
+                            <i class="fas fa-lightbulb"></i>
+                            <h3>Try These Commands</h3>
+                        </div>
+                        <div class="examples-grid" id="examplesGrid"></div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="analytics-tab">
+                    <div class="analytics-panel">
+                        <h3><i class="fas fa-chart-line"></i> Usage Analytics</h3>
+                        <div class="analytics-grid">
+                            <div class="analytics-chart">
+                                <canvas id="commandChart"></canvas>
+                            </div>
+                            <div class="analytics-chart">
+                                <canvas id="detectionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-content" id="knowledge-tab">
+                    <div class="command-examples">
+                        <div class="examples-title">
+                            <i class="fas fa-book"></i>
+                            <h3>Knowledge Base</h3>
+                        </div>
+                        <div id="knowledgeBase" class="ai-response">
+                            <p>Ask me anything about:</p>
+                            <ul>
+                                <li>Science and technology</li>
+                                <li>History and culture</li>
+                                <li>Mathematics and logic</li>
+                                <li>Arts and literature</li>
+                                <li>Health and medicine</li>
+                                <li>Business and finance</li>
+                            </ul>
+                            <p>Try commands like "Explain quantum computing" or "Tell me about the Renaissance"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>AI Vision Assistant - Your intelligent companion</p>
+            <div class="creators">
+                <div class="creator">
+                    <i class="fas fa-code"></i>
+                    <span>Deepak Sharma</span>
+                </div>
+                <div class="creator">
+                    <i class="fas fa-code"></i>
+                    <span>Anshul Singh</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+        // Enhanced command database with more capabilities
+        const commandDatabase = {
+            // Basic interaction
+            greetings: [
+                "hello", "hi", "hey", "good morning", "good afternoon", 
+                "good evening", "how are you", "what's up", "greetings"
+            ],
+            
+            // About assistant
+            about: [
+                "who made you", "who created you", "who developed you",
+                "what are you", "what is your purpose", "who is your owner",
+                "tell me about yourself", "what can you do", "what are your capabilities"
+            ],
+            
+            // Time and date
+            time: [
+                "what time is it", "current time", "tell me the time",
+                "what's the time", "time please", "what day is it",
+                "what's today's date", "current date", "what month is it",
+                "what year is it", "day of the week"
+            ],
+            
+            // Navigation
+            navigation: [
+                "open google", "go to youtube", "take me to wikipedia",
+                "open facebook", "launch twitter", "visit amazon",
+                "open gmail", "go to linkedin", "open instagram",
+                "take me to reddit", "open netflix", "visit spotify",
+                "open github", "go to stackoverflow", "visit medium"
+            ],
+            
+            // Search
+            search: [
+                "search google for", "search youtube for", "look up",
+                "find information about", "search for", "google",
+                "youtube search", "web search for", "find me",
+                "search the web for", "look for", "search wikipedia for"
+            ],
+            
+            // Object detection
+            detection: [
+                "what is this", "describe my surroundings", "what do you see",
+                "identify objects", "scan the room", "what's in front of me",
+                "detect objects", "analyze the scene", "what objects are here",
+                "tell me what you see", "what's in this image", "describe this picture"
+            ],
+            
+            // Face detection
+            face: [
+                "detect faces", "find faces", "count people",
+                "how many faces", "face detection", "who is here",
+                "analyze faces", "face recognition", "find people"
+            ],
+            
+            // Hand tracking
+            hand: [
+                "track hands", "hand detection", "gesture recognition",
+                "count fingers", "what gesture is this", "hand pose",
+                "analyze hands", "find hands", "hand tracking"
+            ],
+            
+            // Dr. Sachin Gupta
+            sachin: [
+                "who is dr sachin gupta", "about sachin gupta",
+                "tell me about dr gupta", "who is sachin gupta",
+                "information about dr sachin gupta", "डॉ सचिन गुप्ता कौन हैं",
+                "about sanskrit university vc", "vc of sanskrit university"
+            ],
+            
+            // Weather
+            weather: [
+                "what's the weather", "weather forecast", "is it going to rain",
+                "temperature today", "weather report", "how's the weather",
+                "will it rain today", "weather update", "current weather",
+                "weather conditions", "humidity level", "weather prediction"
+            ],
+            
+            // News
+            news: [
+                "latest news", "news update", "current headlines",
+                "today's news", "breaking news", "world news",
+                "news headlines", "what's in the news", "news report",
+                "top stories", "news today", "current events"
+            ],
+            
+            // Entertainment
+            entertainment: [
+                "tell me a joke", "say something funny", "make me laugh",
+                "tell me a story", "sing a song", "say a poem",
+                "give me a quote", "inspirational quote", "motivational quote",
+                "fun fact", "interesting fact", "did you know"
+            ],
+            
+            // System commands
+            system: [
+                "stop listening", "go to sleep", "wake up",
+                "turn off", "shut down", "restart",
+                "exit", "close", "goodbye",
+                "see you later", "that's all", "thank you"
+            ],
+            
+            // Help
+            help: [
+                "help", "what can I say", "available commands",
+                "how to use", "user guide", "tutorial",
+                "show commands", "list features", "what are my options",
+                "command list", "help menu", "what can you do"
+            ],
+            
+            // Knowledge
+            knowledge: [
+                "explain", "what is", "who is", "define", "how does",
+                "why does", "when was", "where is", "can you tell me about",
+                "information on", "details about", "meaning of",
+                "tell me about", "describe", "teach me",
+                "history of", "science behind", "technology of",
+                "how to", "steps to", "process of"
+            ],
+            
+            // Calculations
+            math: [
+                "calculate", "what is", "solve", "math problem",
+                "add", "subtract", "multiply", "divide",
+                "square root", "percentage", "power of",
+                "factorial", "logarithm", "trigonometry"
+            ],
+            
+            // Translation
+            translation: [
+                "translate to", "how do you say", "what is in",
+                "english to hindi", "hindi to english", "say in spanish",
+                "french translation", "german for", "meaning in"
+            ]
+        };
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            // ===== DOM Elements =====
+            const activateBtn = document.getElementById("activateBtn");
+            const stopBtn = document.getElementById("stopBtn");
+            const detectBtn = document.getElementById("detectBtn");
+            const faceBtn = document.getElementById("faceBtn");
+            const handBtn = document.getElementById("handBtn");
+            const statusText = document.getElementById("status");
+            const statusIndicator = document.getElementById("statusIndicator");
+            const videoElement = document.getElementById("videoElement");
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            const historyList = document.getElementById("historyList");
+            const darkModeToggle = document.getElementById("darkModeToggle");
+            const examplesGrid = document.getElementById("examplesGrid");
+            const aiResponseContainer = document.getElementById("aiResponseContainer");
+            const aiResponseContent = document.getElementById("aiResponseContent");
+            const cameraSelect = document.getElementById("cameraSelect");
+            const modelSelect = document.getElementById("modelSelect");
+            const languageSelect = document.getElementById("languageSelect");
+            const tabs = document.querySelectorAll(".tab");
+            const tabContents = document.querySelectorAll(".tab-content");
+            
+            // Populate example commands
+            populateExamples();
+            
+            // ===== State Variables =====
+            let model = null;
+            let faceModel = null;
+            let handModel = null;
+            let detecting = false;
+            let faceDetecting = false;
+            let handTracking = false;
+            let recognitionActive = false;
+            let cameraStream = null;
+            let currentLanguage = "en-US";
+            let commandStats = {};
+            let detectionStats = {};
+            let commandChart = null;
+            let detectionChart = null;
+            let ollamaEndpoint = "http://localhost:11434/api/generate";
+            let currentLLMResponse = "";
+            
+            // Initialize analytics
+            initializeAnalytics();
+            
+            // ===== Initialize App =====
+            async function initialize() {
+                try {
+                    await loadModels();
+                    await startCamera();
+                    updateStatus("✅ Ready for commands!", "ready");
+                    detectBtn.disabled = false;
+                    faceBtn.disabled = false;
+                    handBtn.disabled = false;
+                    
+                    // Check if Ollama is available
+                    await checkOllamaConnection();
+                } catch (error) {
+                    console.error("Initialization error:", error);
+                    updateStatus("❌ Initialization failed", "error");
+                    speak("Sorry, I failed to start properly.");
+                }
+            }
+            
+            // Initialize analytics charts
+            function initializeAnalytics() {
+                // Command statistics
+                commandStats = {
+                    greetings: 0,
+                    navigation: 0,
+                    detection: 0,
+                    knowledge: 0,
+                    system: 0
+                };
+                
+                // Detection statistics
+                detectionStats = {
+                    person: 0,
+                    car: 0,
+                    phone: 0,
+                    book: 0,
+                    chair: 0
+                };
+                
+                // Setup charts
+                setupCharts();
+            }
+            
+            // Setup analytics charts
+            function setupCharts() {
+                const commandCtx = document.getElementById('commandChart').getContext('2d');
+                const detectionCtx = document.getElementById('detectionChart').getContext('2d');
+                
+                commandChart = new Chart(commandCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Greetings', 'Navigation', 'Detection', 'Knowledge', 'System'],
+                        datasets: [{
+                            data: Object.values(commandStats),
+                            backgroundColor: [
+                                '#4361ee',
+                                '#3f37c9',
+                                '#4bb543',
+                                '#ffcc00',
+                                '#ff3333'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Command Usage'
+                            }
+                        }
+                    }
+                });
+                
+                detectionChart = new Chart(detectionCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(detectionStats),
+                        datasets: [{
+                            label: 'Detections',
+                            data: Object.values(detectionStats),
+                            backgroundColor: '#4361ee',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Object Detection Stats'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Update analytics
+            function updateAnalytics(commandType) {
+                if (commandStats[commandType] !== undefined) {
+                    commandStats[commandType]++;
+                    commandChart.update();
+                }
+            }
+            
+            // Update detection stats
+            function updateDetectionStats(objects) {
+                objects.forEach(obj => {
+                    if (detectionStats[obj.class] !== undefined) {
+                        detectionStats[obj.class]++;
+                    } else if (obj.class === 'person') {
+                        detectionStats.person++;
+                    }
+                });
+                detectionChart.update();
+            }
+            
+            // Check Ollama connection
+            async function checkOllamaConnection() {
+                try {
+                    const response = await fetch(ollamaEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: "gemma:2b",
+                            prompt: "test",
+                            stream: false
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error("Ollama not available");
+                    }
+                    
+                    console.log("Ollama connection successful");
+                    return true;
+                } catch (error) {
+                    console.warn("Ollama not available, falling back to local responses only");
+                    return false;
+                }
+            }
+            
+            // Tab switching
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    const tabId = tab.getAttribute('data-tab');
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                });
+            });
+            
+            // Populate example commands grid
+            function populateExamples() {
+                const categories = Object.keys(commandDatabase);
+                const examples = [];
+                
+                // Get 2 examples from each category
+                categories.forEach(category => {
+                    const categoryCommands = commandDatabase[category];
+                    for (let i = 0; i < 2 && i < categoryCommands.length; i++) {
+                        examples.push(categoryCommands[i]);
+                    }
+                });
+                
+                // Shuffle and display
+                shuffleArray(examples).slice(0, 12).forEach(example => {
+                    const chip = document.createElement("div");
+                    chip.className = "example-chip";
+                    chip.textContent = example;
+                    chip.addEventListener("click", () => {
+                        simulateCommand(example);
+                    });
+                    examplesGrid.appendChild(chip);
+                });
+            }
+            
+            // Helper to shuffle array
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+            
+            // Simulate voice command
+            function simulateCommand(command) {
+                addToHistory(command);
+                statusText.textContent = `🎯 Command: ${command}`;
+                handleCommand(command);
+            }
+            
+            // Update status with visual indicator
+            function updateStatus(text, state = "ready") {
+                statusText.textContent = text;
+                statusIndicator.className = "status-indicator";
+                
+                switch (state) {
+                    case "ready":
+                        statusIndicator.classList.add("ready");
+                        break;
+                    case "listening":
+                        statusIndicator.classList.add("listening");
+                        break;
+                    case "thinking":
+                        statusIndicator.classList.add("thinking");
+                        break;
+                    case "error":
+                        statusIndicator.style.background = "var(--danger)";
+                        break;
+                    default:
+                        statusIndicator.style.background = "var(--gray)";
+                }
+            }
+            
+            // ===== Load AI Models =====
+            async function loadModels() {
+                updateStatus("🔍 Loading AI models...", "thinking");
+                try {
+                    // Load object detection model
+                    model = await cocoSsd.load();
+                    
+                    // Load face detection model
+                    faceModel = await facemesh.load({
+                        maxFaces: 4,
+                        detectionConfidence: 0.6,
+                        scoreThreshold: 0.75
+                    });
+                    
+                    // Load hand tracking model
+                    handModel = await handpose.load();
+                    
+                    console.log("All models loaded successfully");
+                } catch (error) {
+                    console.error("Model loading error:", error);
+                    throw new Error("Failed to load AI models");
+                }
+            }
+            
+            // ===== Speech Synthesis =====
+            function speak(text, lang = null) {
+                if (!text) return;
+                const language = lang || currentLanguage;
+                
+                return new Promise((resolve) => {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = language;
+                    utterance.onend = resolve;
+                    window.speechSynthesis.speak(utterance);
+                });
+            }
+            
+            // ===== Camera Handling =====
+            async function startCamera() {
+                try {
+                    // Stop existing stream if any
+                    if (cameraStream) {
+                        cameraStream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    const facingMode = cameraSelect.value;
+                    cameraStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            width: { ideal: 1280 }, 
+                            height: { ideal: 720 },
+                            facingMode: facingMode
+                        },
+                        audio: false
+                    });
+                    videoElement.srcObject = cameraStream;
+                    
+                    return new Promise((resolve) => {
+                        videoElement.onloadedmetadata = () => {
+                            canvas.width = videoElement.videoWidth;
+                            canvas.height = videoElement.videoHeight;
+                            resolve();
+                        };
+                    });
+                } catch (error) {
+                    console.error("Camera error:", error);
+                    throw new Error("Could not access camera");
+                }
+            }
+            
+            // Camera switch handler
+            cameraSelect.addEventListener('change', async () => {
+                try {
+                    updateStatus("🔄 Switching camera...", "thinking");
+                    await startCamera();
+                    updateStatus("✅ Ready for commands!", "ready");
+                } catch (error) {
+                    console.error("Camera switch error:", error);
+                    updateStatus("❌ Camera switch failed", "error");
+                    speak("Sorry, I couldn't switch the camera.");
+                }
+            });
+            
+            // Language switch handler
+            languageSelect.addEventListener('change', () => {
+                currentLanguage = languageSelect.value;
+                speak(`Language changed to ${languageSelect.options[languageSelect.selectedIndex].text}`, currentLanguage);
+            });
+            
+            // ===== Voice Recognition =====
+            let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                updateStatus("❌ Voice recognition not supported", "error");
+                activateBtn.disabled = true;
+                return;
+            }
+            
+            let recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.lang = currentLanguage;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            
+            recognition.onstart = () => {
+                console.log("Voice recognition started");
+                recognitionActive = true;
+                updateStatus("🔴 Listening...", "listening");
+                activateBtn.disabled = true;
+                stopBtn.disabled = false;
+            };
+            
+            recognition.onresult = async (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                console.log("User said:", transcript);
+                addToHistory(transcript);
+                updateStatus(`🎯 Command: ${transcript}`, "thinking");
+                
+                try {
+                    await handleCommand(transcript);
+                } catch (error) {
+                    console.error("Command error:", error);
+                    speak("Sorry, I couldn't process that.");
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                console.error("Recognition error:", event.error);
+                speak("Sorry, I couldn't hear you. Please try again.");
+                resetRecognition();
+            };
+            
+            recognition.onend = () => {
+                if (recognitionActive) recognition.start();
+                else updateStatus("🟢 Ready", "ready");
+            };
+            
+            // Language change updates recognition
+            languageSelect.addEventListener('change', () => {
+                recognition.lang = languageSelect.value;
+            });
+            
+            // ===== Button Events =====
+            activateBtn.addEventListener("click", () => recognition.start());
+            stopBtn.addEventListener("click", () => {
+                recognitionActive = false;
+                recognition.stop();
+                resetRecognition();
+            });
+            detectBtn.addEventListener("click", () => detectObjects());
+            faceBtn.addEventListener("click", () => toggleFaceDetection());
+            handBtn.addEventListener("click", () => toggleHandTracking());
+            
+            // Dark mode toggle
+            darkModeToggle.addEventListener("click", () => {
+                document.body.classList.toggle("dark-mode");
+                const icon = darkModeToggle.querySelector("i");
+                if (document.body.classList.contains("dark-mode")) {
+                    icon.classList.remove("fa-moon");
+                    icon.classList.add("fa-sun");
+                } else {
+                    icon.classList.remove("fa-sun");
+                    icon.classList.add("fa-moon");
+                }
+            });
+            
+            // ===== Core Functions =====
+            function resetRecognition() {
+                activateBtn.disabled = false;
+                stopBtn.disabled = true;
+                updateStatus("🟢 Ready", "ready");
+            }
+            
+            function addToHistory(command) {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                const dateString = now.toLocaleDateString();
+                
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <time datetime="${now.toISOString()}">${dateString} ${timeString}</time>
+                    ${command}
+                `;
+                historyList.prepend(li);
+                
+                // Keep only the last 20 commands
+                if (historyList.children.length > 20) {
+                    historyList.removeChild(historyList.lastChild);
+                }
+            }
+            
+            // Show AI response
+            function showAIResponse(response, isThinking = false) {
+                aiResponseContainer.style.display = "block";
+                
+                if (isThinking) {
+                    aiResponseContent.innerHTML = `
+                        <div class="ai-response-loading">
+                            <div class="spinner"></div>
+                            <span>Thinking...</span>
+                        </div>
+                    `;
+                } else {
+                    aiResponseContent.textContent = response;
+                }
+            }
+            
+            // Hide AI response
+            function hideAIResponse() {
+                aiResponseContainer.style.display = "none";
+            }
+            
+            // ===== Object Detection =====
+            async function detectObjects() {
+                if (!model) return speak("Object detection model not loaded.");
+                if (detecting) return;
+                
+                detecting = true;
+                updateStatus("🔍 Detecting objects...", "thinking");
+                detectBtn.disabled = true;
+                
+                try {
+                    const predictions = await model.detect(videoElement);
+                    console.log("Objects detected:", predictions);
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    if (predictions.length > 0) {
+                        const objectsList = predictions.map(p => `${p.class}`).join(", ");
+                        await speak(`I see ${objectsList}`);
+                        
+                        // Update detection stats
+                        updateDetectionStats(predictions);
+                        
+                        // Draw bounding boxes
+                        predictions.forEach(pred => {
+                            ctx.strokeStyle = "#00FF00";
+                            ctx.lineWidth = 4;
+                            ctx.strokeRect(...pred.bbox);
+                            ctx.fillStyle = "#00FF00";
+                            ctx.font = "16px Arial";
+                            ctx.fillText(
+                                `${pred.class} ${Math.round(pred.score * 100)}%`,
+                                pred.bbox[0] + 5,
+                                pred.bbox[1] > 20 ? pred.bbox[1] - 5 : pred.bbox[1] + 20
+                            );
+                        });
+                    } else {
+                        await speak("I don't see any objects.");
+                    }
+                } catch (error) {
+                    console.error("Detection error:", error);
+                    await speak("Object detection failed. Try again.");
+                } finally {
+                    detecting = false;
+                    detectBtn.disabled = false;
+                    updateStatus(recognitionActive ? "🔴 Listening..." : "🟢 Ready", 
+                                recognitionActive ? "listening" : "ready");
+                }
+            }
+            
+            // ===== Face Detection =====
+            async function toggleFaceDetection() {
+                if (faceDetecting) {
+                    faceDetecting = false;
+                    faceBtn.classList.remove("active");
+                    updateStatus(recognitionActive ? "🔴 Listening..." : "🟢 Ready", 
+                                recognitionActive ? "listening" : "ready");
+                    return;
+                }
+                
+                if (!faceModel) return speak("Face detection model not loaded.");
+                faceDetecting = true;
+                faceBtn.classList.add("active");
+                updateStatus("👁️ Detecting faces...", "thinking");
+                
+                // Start face detection loop
+                detectFaces();
+            }
+            
+            async function detectFaces() {
+                if (!faceDetecting) return;
+                
+                try {
+                    const predictions = await faceModel.estimateFaces(videoElement);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    if (predictions.length > 0) {
+                        // Draw face mesh
+                        predictions.forEach(pred => {
+                            // Draw bounding box
+                            const box = pred.boundingBox;
+                            ctx.strokeStyle = "#FF0000";
+                            ctx.lineWidth = 2;
+                            ctx.strokeRect(
+                                box.topLeft[0], box.topLeft[1],
+                                box.bottomRight[0] - box.topLeft[0],
+                                box.bottomRight[1] - box.topLeft[1]
+                            );
+                            
+                            // Draw facial landmarks
+                            ctx.fillStyle = "#00FF00";
+                            pred.scaledMesh.forEach(point => {
+                                ctx.fillRect(point[0], point[1], 2, 2);
+                            });
+                        });
+                        
+                        await speak(`I see ${predictions.length} face${predictions.length !== 1 ? 's' : ''}`);
+                    }
+                    
+                    // Continue detection
+                    requestAnimationFrame(detectFaces);
+                } catch (error) {
+                    console.error("Face detection error:", error);
+                    faceDetecting = false;
+                    faceBtn.classList.remove("active");
+                    updateStatus("❌ Face detection failed", "error");
+                }
+            }
+            
+            // ===== Hand Tracking =====
+            async function toggleHandTracking() {
+                if (handTracking) {
+                    handTracking = false;
+                    handBtn.classList.remove("active");
+                    updateStatus(recognitionActive ? "🔴 Listening..." : "🟢 Ready", 
+                                recognitionActive ? "listening" : "ready");
+                    return;
+                }
+                
+                if (!handModel) return speak("Hand tracking model not loaded.");
+                handTracking = true;
+                handBtn.classList.add("active");
+                updateStatus("✋ Tracking hands...", "thinking");
+                
+                // Start hand tracking loop
+                trackHands();
+            }
+            
+            async function trackHands() {
+                if (!handTracking) return;
+                
+                try {
+                    const predictions = await handModel.estimateHands(videoElement);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    if (predictions.length > 0) {
+                        // Draw hand landmarks
+                        predictions.forEach(pred => {
+                            ctx.fillStyle = "#0000FF";
+                            pred.landmarks.forEach(point => {
+                                ctx.fillRect(point[0], point[1], 4, 4);
+                            });
+                            
+                            // Draw connections
+                            ctx.strokeStyle = "#00FFFF";
+                            ctx.lineWidth = 2;
+                            handModel.util.getAdjacentPairs().forEach(([i, j]) => {
+                                ctx.beginPath();
+                                ctx.moveTo(
+                                    pred.landmarks[i][0],
+                                    pred.landmarks[i][1]
+                                );
+                                ctx.lineTo(
+                                    pred.landmarks[j][0],
+                                    pred.landmarks[j][1]
+                                );
+                                ctx.stroke();
+                            });
+                        });
+                        
+                        await speak(`I see ${predictions.length} hand${predictions.length !== 1 ? 's' : ''}`);
+                    }
+                    
+                    // Continue tracking
+                    requestAnimationFrame(trackHands);
+                } catch (error) {
+                    console.error("Hand tracking error:", error);
+                    handTracking = false;
+                    handBtn.classList.remove("active");
+                    updateStatus("❌ Hand tracking failed", "error");
+                }
+            }
+            
+            // Open Website
+            function openWebsite(url) {
+                window.open(url, "_blank");
+            }
+            
+            // Search on Google
+            function searchGoogle(query) {
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+                openWebsite(searchUrl);
+            }
+            
+            // Search on YouTube
+            function searchYouTube(query) {
+                const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+                openWebsite(searchUrl);
+            }
+            
+            // Query Ollama Gemma model
+            async function queryGemma(prompt) {
+                showAIResponse("", true);
+                
+                try {
+                    const response = await fetch(ollamaEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: "gemma:2b",
+                            prompt: prompt,
+                            stream: false
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error("Failed to get response from Ollama");
+                    }
+                    
+                    const data = await response.json();
+                    const answer = data.response.trim();
+                    
+                    showAIResponse(answer);
+                    return answer;
+                } catch (error) {
+                    console.error("Ollama query error:", error);
+                    hideAIResponse();
+                    return null;
+                }
+            }
+            
+            // Perform calculations
+            function calculateExpression(expression) {
+                try {
+                    // Basic safety check (very simple, not production-ready)
+                    if (/[a-zA-Z`'"\\]/.test(expression)) {
+                        throw new Error("Invalid characters in expression");
+                    }
+                    
+                    // Replace words with operators
+                    expression = expression
+                        .replace(/plus/gi, '+')
+                        .replace(/minus/gi, '-')
+                        .replace(/times/gi, '*')
+                        .replace(/multiplied by/gi, '*')
+                        .replace(/divided by/gi, '/')
+                        .replace(/to the power of/gi, '**')
+                        .replace(/\^/gi, '**');
+                    
+                    // Evaluate safely
+                    const result = Function(`'use strict'; return (${expression})`)();
+                    return result.toString();
+                } catch (error) {
+                    console.error("Calculation error:", error);
+                    return null;
+                }
+            }
+            
+            // Get quick response
+            async function getQuickResponse(query) {
+                const lowerQuery = query.toLowerCase();
+                
+                // Check greetings
+                if (commandDatabase.greetings.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('greetings');
+                    const greetings = [
+                        "Hello! How can I help you today?",
+                        "Hi there! What can I do for you?",
+                        "Greetings! I'm here to assist you."
+                    ];
+                    return speak(greetings[Math.floor(Math.random() * greetings.length)]);
+                }
+                
+                // Check time
+                if (commandDatabase.time.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('system');
+                    const now = new Date();
+                    const timeString = now.toLocaleTimeString();
+                    const dateString = now.toLocaleDateString();
+                    return speak(`It's ${timeString} on ${dateString}`);
+                }
+                
+                // Check about
+                if (commandDatabase.about.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('system');
+                    return speak("I'm an AI vision assistant created by Deepak Sharma and Anshul Singh to help you with various tasks.");
+                }
+                
+                // Check navigation
+                for (const site of ["google", "youtube", "wikipedia", "facebook", "twitter", 
+                                  "amazon", "gmail", "linkedin", "instagram", "reddit"]) {
+                    if (lowerQuery.includes(`open ${site}`) || lowerQuery.includes(`go to ${site}`)) {
+                        updateAnalytics('navigation');
+                        await speak(`Opening ${site}`);
+                        return openWebsite(`https://www.${site}.com`);
+                    }
+                }
+                
+                // Check search
+                if (lowerQuery.includes("search google for")) {
+                    updateAnalytics('navigation');
+                    const query = lowerQuery.replace("search google for", "").trim();
+                    await speak(`Searching Google for ${query}`);
+                    return searchGoogle(query);
+                }
+                
+                if (lowerQuery.includes("search youtube for")) {
+                    updateAnalytics('navigation');
+                    const query = lowerQuery.replace("search youtube for", "").trim();
+                    await speak(`Searching YouTube for ${query}`);
+                    return searchYouTube(query);
+                }
+                
+                // Check Dr. Sachin Gupta
+                if (commandDatabase.sachin.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('knowledge');
+                    await speak(
+                        "Dr. Sachin Gupta is the respected  Chancellor of Sanskrit University. Here is his LinkedIn profile."
+                    );
+                    return openWebsite("https://www.linkedin.com/in/sachingupta2010/?originalSubdomain=in");
+                }
+                
+                // Check weather
+                if (commandDatabase.weather.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('knowledge');
+                    return speak("I can't check real-time weather, but you can ask me to search weather for your location.");
+                }
+                
+                // Check news
+                if (commandDatabase.news.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('navigation');
+                    return speak("I can open news websites for you. Would you like me to open Google News?");
+                }
+                
+                // Check entertainment
+                if (commandDatabase.entertainment.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('entertainment');
+                    const jokes = [
+                        "Why don't scientists trust atoms? Because they make up everything!",
+                        "Did you hear about the mathematician who's afraid of negative numbers? He'll stop at nothing to avoid them!",
+                        "Why don't skeletons fight each other? They don't have the guts!"
+                    ];
+                    return speak(jokes[Math.floor(Math.random() * jokes.length)]);
+                }
+                
+                // Check system commands
+                if (commandDatabase.system.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('system');
+                    if (lowerQuery.includes("stop listening")) {
+                        recognitionActive = false;
+                        recognition.stop();
+                        resetRecognition();
+                        return speak("I've stopped listening. Click the button to start again.");
+                    }
+                    return speak("I heard a system command but I'm not configured for that yet.");
+                }
+                
+                // Check help
+                if (commandDatabase.help.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('system');
+                    return speak("You can ask me to detect objects, search the web, open websites, or answer general questions. Try saying 'what can you do?'");
+                }
+                
+                // Check math calculations
+                if (commandDatabase.math.some(cmd => lowerQuery.includes(cmd)) || 
+                    /[\d+\-*\/^]/.test(lowerQuery)) {
+                    updateAnalytics('knowledge');
+                    const mathExpr = lowerQuery.replace(/calculate|what is|solve|math problem/i, "").trim();
+                    const result = calculateExpression(mathExpr);
+                    if (result) {
+                        return speak(`The result is ${result}`);
+                    } else {
+                        return speak("Sorry, I couldn't solve that math problem.");
+                    }
+                }
+                
+                // Check knowledge questions
+                if (commandDatabase.knowledge.some(cmd => lowerQuery.includes(cmd))) {
+                    updateAnalytics('knowledge');
+                    const answer = await queryGemma(query);
+                    if (answer) {
+                        await speak(answer);
+                        return;
+                    }
+                }
+                
+                // Default response - try to answer with Ollama
+                updateAnalytics('knowledge');
+                const answer = await queryGemma(query);
+                if (answer) {
+                    await speak(answer);
+                } else {
+                    await speak("I found some information about that. Let me open a search for you.");
+                    searchGoogle(query);
+                }
+            }
+            
+            // ===== Command Handling =====
+            async function handleCommand(command) {
+                // Object detection
+                if (commandDatabase.detection.some(cmd => command.includes(cmd))) {
+                    updateAnalytics('detection');
+                    await detectObjects();
+                }
+                // Face detection
+                else if (commandDatabase.face.some(cmd => command.includes(cmd))) {
+                    updateAnalytics('detection');
+                    await toggleFaceDetection();
+                }
+                // Hand tracking
+                else if (commandDatabase.hand.some(cmd => command.includes(cmd))) {
+                    updateAnalytics('detection');
+                    await toggleHandTracking();
+                }
+                // Quick responses
+                else {
+                    await getQuickResponse(command);
+                }
+            }
+            
+            // ===== Utility Functions =====
+            function detectLanguage(text) {
+                const hindiChars = /[\u0900-\u097F]/;
+                return hindiChars.test(text) ? "hi-IN" : currentLanguage;
+            }
+            
+            // ===== Cleanup =====
+            window.addEventListener("beforeunload", () => {
+                if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+                if (recognitionActive) recognition.stop();
+                window.speechSynthesis.cancel();
+            })
+            
+            
+            // ===== Start App =====
+            initialize();
+        });
+    </script>
+</body>
+</html>
